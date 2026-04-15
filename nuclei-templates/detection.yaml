@@ -1,0 +1,196 @@
+id: exposed-env-file
+info:
+  name: Exposed .env File
+  severity: critical
+  tags: [exposure, config, env]
+  description: >
+    The application exposes a .env file containing environment variables,
+    which may include database credentials, API keys, and secrets.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.env"
+      - "{{BaseURL}}/.env.local"
+      - "{{BaseURL}}/.env.production"
+      - "{{BaseURL}}/.env.backup"
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "APP_KEY"
+          - "DB_PASSWORD"
+          - "SECRET_KEY"
+          - "AWS_SECRET"
+        condition: or
+      - type: status
+        status:
+          - 200
+
+---
+id: exposed-git-repo
+info:
+  name: Exposed .git Directory
+  severity: high
+  tags: [exposure, git, config]
+  description: >
+    A publicly accessible .git directory may allow source code reconstruction.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/HEAD"
+      - "{{BaseURL}}/.git/config"
+    matchers:
+      - type: word
+        words:
+          - "ref: refs/"
+          - "[core]"
+        condition: or
+
+---
+id: exposed-phpinfo
+info:
+  name: PHP Info Page Exposed
+  severity: medium
+  tags: [exposure, php, info-disclosure]
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpinfo.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/php_info.php"
+    matchers:
+      - type: word
+        words:
+          - "PHP Version"
+          - "phpinfo()"
+        condition: or
+
+---
+id: default-login-admin
+info:
+  name: Default Admin Credentials
+  severity: critical
+  tags: [auth, default-creds]
+
+requests:
+  - method: POST
+    path:
+      - "{{BaseURL}}/admin/login"
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/wp-login.php"
+    body: "username=admin&password=admin"
+    headers:
+      Content-Type: application/x-www-form-urlencoded
+    matchers:
+      - type: word
+        words:
+          - "dashboard"
+          - "logout"
+          - "welcome"
+        condition: or
+      - type: status
+        status:
+          - 302
+
+---
+id: aws-metadata-ssrf
+info:
+  name: AWS IMDS Metadata via SSRF
+  severity: critical
+  tags: [ssrf, aws, cloud]
+  description: >
+    Tests whether a URL parameter reflects responses from the AWS IMDS endpoint.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}?url=http://169.254.169.254/latest/meta-data/"
+      - "{{BaseURL}}?redirect=http://169.254.169.254/latest/meta-data/"
+      - "{{BaseURL}}?next=http://169.254.169.254/latest/meta-data/"
+    matchers:
+      - type: word
+        words:
+          - "ami-id"
+          - "instance-id"
+          - "iam"
+        condition: or
+
+---
+id: backup-files
+info:
+  name: Backup Files Exposed
+  severity: medium
+  tags: [exposure, backup]
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/backup.zip"
+      - "{{BaseURL}}/backup.tar.gz"
+      - "{{BaseURL}}/db.sql"
+      - "{{BaseURL}}/database.sql"
+      - "{{BaseURL}}/dump.sql"
+      - "{{BaseURL}}/site.tar.gz"
+      - "{{BaseURL}}/www.zip"
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        words:
+          - "PK\x03\x04"
+          - "CREATE TABLE"
+          - "INSERT INTO"
+        condition: or
+
+---
+id: cors-misconfiguration
+info:
+  name: CORS Misconfiguration
+  severity: high
+  tags: [cors, misconfiguration]
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/v1/user"
+      - "{{BaseURL}}/api/user"
+    headers:
+      Origin: "https://evil.example.com"
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "Access-Control-Allow-Origin: https://evil.example.com"
+          - "Access-Control-Allow-Credentials: true"
+        condition: and
+
+---
+id: jwt-none-alg
+info:
+  name: JWT None Algorithm Bypass
+  severity: critical
+  tags: [auth, jwt, bypass]
+  description: >
+    Tests whether the application accepts JWTs signed with the 'none' algorithm,
+    allowing authentication bypass.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/v1/me"
+      - "{{BaseURL}}/api/profile"
+    headers:
+      Authorization: "Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxIiwicm9sZSI6ImFkbWluIn0."
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        words:
+          - "admin"
+          - "role"
+        condition: or
