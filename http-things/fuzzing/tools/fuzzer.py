@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ï»¿#!/usr/bin/env python3
 """
 recon-arsenal :: fuzzer.py
 Powerful HTTP fuzzer for authorized security testing.
@@ -29,8 +29,8 @@ console = Console()
 
 BANNER = f"""{Fore.CYAN}
 +-----------------------------------------------+
-¦          recon-arsenal :: fuzzer v1.0         ¦
-¦   Authorized Security Testing Only — FUZZ     ¦
+Â¦          recon-arsenal :: fuzzer v1.0         Â¦
+Â¦   Authorized Security Testing Only â€” FUZZ     Â¦
 +-----------------------------------------------+
 {Style.RESET_ALL}"""
 
@@ -286,7 +286,7 @@ class Fuzzer:
                 TimeElapsedColumn(),
                 console=console,
             ) as progress:
-                task = progress.add_task("Fuzzing…", total=len(words))
+                task = progress.add_task("Fuzzingâ€¦", total=len(words))
 
                 async def worker(payload):
                     r = await self._fuzz_one(payload, progress, task)
@@ -309,7 +309,7 @@ class Fuzzer:
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="recon-arsenal fuzzer — authorized testing only",
+        description="recon-arsenal fuzzer â€” authorized testing only",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p.add_argument("-u", "--url", required=True,
