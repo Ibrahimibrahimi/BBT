@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ï»¿#!/usr/bin/env python3
 """
 recon-arsenal :: utils/output.py
 Shared output formatters, report generator, and color helpers.
@@ -37,8 +37,8 @@ def print_banner(tool_name: str, version: str = "1.0"):
     width = 50
     border = "-" * width
     console.print(f"[cyan]+{border}+[/cyan]")
-    console.print(f"[cyan]¦[/cyan]{'recon-arsenal :: ' + tool_name + ' v' + version:^{width}}[cyan]¦[/cyan]")
-    console.print(f"[cyan]¦[/cyan]{'Authorized Security Testing Only':^{width}}[cyan]¦[/cyan]")
+    console.print(f"[cyan]Â¦[/cyan]{'recon-arsenal :: ' + tool_name + ' v' + version:^{width}}[cyan]Â¦[/cyan]")
+    console.print(f"[cyan]Â¦[/cyan]{'Authorized Security Testing Only':^{width}}[cyan]Â¦[/cyan]")
     console.print(f"[cyan]+{border}+[/cyan]")
 
 
