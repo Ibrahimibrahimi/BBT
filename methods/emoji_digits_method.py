@@ -1,0 +1,17 @@
+from methods.base import BaseMethod
+
+
+class EmojiDigitsMethod(BaseMethod):
+    name = "Emoji Digits"
+    description = "Replaces digits 0-9 with their emoji equivalents"
+    category = "Custom"
+
+    TABLE = str.maketrans({
+        "0": "0\ufe0f\u20e3", "1": "1\ufe0f\u20e3", "2": "2\ufe0f\u20e3",
+        "3": "3\ufe0f\u20e3", "4": "4\ufe0f\u20e3", "5": "5\ufe0f\u20e3",
+        "6": "6\ufe0f\u20e3", "7": "7\ufe0f\u20e3", "8": "8\ufe0f\u20e3",
+        "9": "9\ufe0f\u20e3",
+    })
+
+    def encode(self, text: str) -> str:
+        return text.translate(self.TABLE)
