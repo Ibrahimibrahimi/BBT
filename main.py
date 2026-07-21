@@ -11,6 +11,10 @@ code changes needed here.
 """
 
 import argparse
+import csv
+import io
+import json
+import re
 import sys
 
 from rich.console import Console
@@ -23,6 +27,7 @@ from rich import box
 from loader import load_methods
 
 console = Console()
+no_color = False
 
 # One color per category, cycled if more categories appear later
 CATEGORY_COLORS = {
@@ -35,6 +40,20 @@ DEFAULT_COLOR = "green"
 
 def category_color(category: str) -> str:
     return CATEGORY_COLORS.get(category, DEFAULT_COLOR)
+
+
+def format_results_json(results: list[dict]) -> str:
+    return json.dumps(results, indent=2)
+
+
+def format_results_csv(results: list[dict]) -> str:
+    if not results:
+        return ""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=results[0].keys())
+    writer.writeheader()
+    writer.writerows(results)
+    return buf.getvalue()
 
 
 def print_banner():
@@ -153,6 +172,38 @@ def run_methods(text: str, methods_list, check_match: str = None):
     return matches
 
 
+def run_methods_raw(text: str, methods_list) -> list[dict]:
+    """Run every method and return a list of result dicts (for JSON/CSV output)."""
+    results = []
+    for m in methods_list:
+        try:
+            result = m.encode(text)
+            results.append({"method": m.name, "category": m.category, "result": result, "error": None})
+        except Exception as exc:  # noqa: BLE001
+            results.append({"method": m.name, "category": m.category, "result": None, "error": str(exc)})
+    return results
+
+
+def filter_methods(
+    methods_list,
+    names: list[str] | None = None,
+    category: str | None = None,
+    pattern: str | None = None,
+) -> list:
+    """Return a filtered subset of methods based on the given criteria."""
+    filtered = methods_list
+    if names:
+        name_set = {n.lower() for n in names}
+        filtered = [m for m in filtered if m.name.lower() in name_set]
+    if category:
+        cat_lower = category.lower()
+        filtered = [m for m in filtered if cat_lower in m.category.lower()]
+    if pattern:
+        regex = re.compile(pattern, re.IGNORECASE)
+        filtered = [m for m in filtered if regex.search(m.name) or regex.search(m.description)]
+    return filtered
+
+
 def interactive_loop(methods_list):
     print_banner()
     console.print(
@@ -194,6 +245,8 @@ def interactive_loop(methods_list):
 
 
 def main():
+    global no_color
+
     parser = argparse.ArgumentParser(
         description="Crypter — encode/encrypt/hash a string using every method found in methods/"
     )
@@ -211,12 +264,60 @@ def main():
              'e.g. --check-match "ef59d". Useful for matching a partial/truncated hash.',
     )
     parser.add_argument("-l", "--list", action="store_true", help="List all loaded methods and exit.")
+
+    # --- new flags ---
+    parser.add_argument(
+        "--format",
+        choices=["json", "csv"],
+        dest="output_format",
+        help="Output results as JSON or CSV instead of the default Rich table.",
+    )
+    parser.add_argument(
+        "--methods",
+        nargs="+",
+        metavar="NAME",
+        help="Only run methods whose name matches one of the given names (case-insensitive).",
+    )
+    parser.add_argument(
+        "--category",
+        metavar="CAT",
+        help="Only run methods whose category contains CAT (case-insensitive substring).",
+    )
+    parser.add_argument(
+        "--pattern",
+        metavar="REGEX",
+        help="Only run methods whose name or description matches the given regex.",
+    )
+    parser.add_argument(
+        "--input-encoding",
+        dest="input_encoding",
+        default="utf-8",
+        metavar="ENCODING",
+        help="Encoding of the input text (default: utf-8). E.g. latin-1, ascii, cp1252.",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable Rich color/formatting output.",
+    )
     args = parser.parse_args()
+
+    no_color = args.no_color
+    if no_color:
+        global console
+        console = Console(no_color=True)
 
     methods_list = load_methods()
 
     if not methods_list:
         console.print("[bold red]No methods found in methods/ folder.[/bold red]")
+        sys.exit(1)
+
+    # Apply method filters
+    methods_list = filter_methods(methods_list, names=args.methods, category=args.category, pattern=args.pattern)
+
+    if not methods_list:
+        console.print("[bold red]No methods matched the given filters.[/bold red]")
         sys.exit(1)
 
     if args.list:
@@ -227,11 +328,31 @@ def main():
     # --target takes priority, but the positional arg still works too
     target_text = args.target if args.target is not None else args.text
 
+    # Re-encode target text if a non-UTF-8 input encoding was specified
+    if target_text and args.input_encoding.lower() != "utf-8":
+        raw = target_text.encode("utf-8")
+        try:
+            target_text = raw.decode(args.input_encoding)
+        except (UnicodeDecodeError, LookupError) as exc:
+            console.print(f"[bold red]Input encoding error: {exc}[/bold red]")
+            sys.exit(1)
+
     if target_text:
-        print_banner()
-        matches = run_methods(target_text, methods_list, check_match=args.check_match)
-        if args.check_match:
-            sys.exit(0 if matches else 1)
+        if args.output_format:
+            results = run_methods_raw(target_text, methods_list)
+            if args.output_format == "json":
+                print(format_results_json(results))
+            elif args.output_format == "csv":
+                print(format_results_csv(results))
+            if args.check_match:
+                needle = args.check_match.lower()
+                matches = [r for r in results if r["result"] and needle in r["result"].lower()]
+                sys.exit(0 if matches else 1)
+        else:
+            print_banner()
+            matches = run_methods(target_text, methods_list, check_match=args.check_match)
+            if args.check_match:
+                sys.exit(0 if matches else 1)
         return
 
     interactive_loop(methods_list)

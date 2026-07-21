@@ -28,3 +28,10 @@ class BaseMethod(ABC):
         be encoded (the loader will still display it, marked as failed).
         """
         raise NotImplementedError
+
+    def decode(self, text: str) -> str | None:
+        """
+        Attempt to reverse the encoding/encryption and return the original
+        text. Return None if decoding is not supported for this method.
+        """
+        return None
